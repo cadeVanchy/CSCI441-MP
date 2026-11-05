@@ -18,7 +18,7 @@ public:
 
     void draw( const glm::mat4& viewMtx, const glm::mat4& projMtx ) const;
 
-    void update( GLfloat dt );
+    void update();
 
     void moveForward( GLfloat distance );
     void moveBackward( GLfloat distance );
@@ -28,6 +28,7 @@ public:
     [[nodiscard]] glm::vec3 getPosition() const { return _position; }
     [[nodiscard]] GLfloat getHeading() const { return _heading; }
     [[nodiscard]] glm::vec3 getForward() const;
+    [[nodiscard]] glm::vec3 getEyePosition() const;
 
 private:
     glm::vec3 _position;
@@ -38,7 +39,7 @@ private:
     GLfloat _stepDirection;
     GLfloat _walkPhase;
     GLfloat _walkBlend;
-    GLfloat _time;
+    GLuint _frameCount;
 
     struct HeroPose {
         GLfloat bob;
@@ -86,6 +87,12 @@ private:
         GLint normalMtx;
         GLint materialColor;
     } _shaderProgramUniformLocations;
+
+    // per-frame animation rates (tuned for 60 FPS)
+    static constexpr GLfloat WALK_PHASE_STEP = 0.133f;
+    static constexpr GLfloat WALK_BLEND_RATE = 0.133f;
+    static constexpr GLuint  BLINK_PERIOD    = 240;
+    static constexpr GLuint  BLINK_LENGTH    = 9;
 
     static constexpr GLfloat HERO_SCALE    = 1.0f;
 

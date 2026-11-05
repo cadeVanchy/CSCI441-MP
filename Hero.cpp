@@ -22,12 +22,11 @@ Hero::Hero(
     _stepDirection( 1.0f ),
     _walkPhase( 0.0f ),
     _walkBlend( 0.0f ),
-    _time( 0.0f ),
+    _frameCount( 0 ),
     _shaderProgramHandle( 0 ),
     _shaderProgramUniformLocations( {-1, -1, -1, -1} )
 {
-    setProgramUniformLocations( shaderProgramHandle, mvpMtxUniformLocation, modelMtxUniformLocation,
-                                normalMtxUniformLocation, materialColorUniformLocation );
+    setProgramUniformLocations( shaderProgramHandle, mvpMtxUniformLocation, modelMtxUniformLocation, normalMtxUniformLocation, materialColorUniformLocation );
 }
 
 void Hero::setProgramUniformLocations( const GLuint shaderProgramHandle, const GLint mvpMtxUniformLocation, const GLint modelMtxUniformLocation, const GLint normalMtxUniformLocation, const GLint materialColorUniformLocation ) {
@@ -37,6 +36,11 @@ void Hero::setProgramUniformLocations( const GLuint shaderProgramHandle, const G
 
 glm::vec3 Hero::getForward() const {
     return { std::sin(_heading), 0.0f, std::cos(_heading) };
+}
+
+glm::vec3 Hero::getEyePosition() const {
+    const GLfloat eyeHeight = HIP_HEIGHT + TORSO_HEIGHT + 0.08f + HEAD_RADIUS * 0.9f + 0.015f;
+    return _position + glm::vec3( 0.0f, eyeHeight * HERO_SCALE, 0.0f ) + getForward() * ((HEAD_RADIUS + 0.08f) * HERO_SCALE);
 }
 
 void Hero::moveForward( const GLfloat distance ) {
@@ -66,11 +70,11 @@ void Hero::_clampToWorld() {
     _position.z = glm::clamp( _position.z, -_worldHalfSize, _worldHalfSize );
 }
 
-void Hero::update( const GLfloat dt ) {
-    _time += dt;
+void Hero::update() {
+    _frameCount++;
 
     if( _isMoving ) {
-        _walkPhase += 8.0f * dt * _stepDirection;
+        _walkPhase += WALK_PHASE_STEP * _stepDirection;
         _walkPhase = std::fmod( _walkPhase, glm::two_pi<GLfloat>() );
     }
 
@@ -78,28 +82,28 @@ void Hero::update( const GLfloat dt ) {
     if( _isMoving ) {
         target = 1.0f;
     }
-    _walkBlend += (target - _walkBlend) * glm::min( 1.0f, 8.0f * dt );
+    _walkBlend += (target - _walkBlend) * WALK_BLEND_RATE;
 }
 
 Hero::HeroPose Hero::_computePose() const {
     HeroPose p{};
     const GLfloat walkSin = std::sin( _walkPhase );
     const GLfloat idle    = 1.0f - _walkBlend;
+    const GLfloat frame   = static_cast<GLfloat>( _frameCount );
 
-    p.bob = 0.015f * std::sin( 2.4f * _time );
-    p.headTilt = 0.06f  * std::sin( 1.3f * _time );
+    p.bob = 0.015f * std::sin( 0.04f * frame );
+    p.headTilt = 0.06f  * std::sin( 0.0217f * frame );
 
     p.legSwing = _walkBlend * 0.55f * walkSin;
-    p.armSwing = _walkBlend * 0.45f * walkSin + idle * 0.05f * std::sin( 1.6f * _time );
+    p.armSwing = _walkBlend * 0.45f * walkSin + idle * 0.05f * std::sin( 0.0267f * frame );
 
-    p.capeLift = 0.06f + 0.04f * std::sin( 2.0f * _time + 0.5f ) + _walkBlend * 0.4f;
-    p.hairLag  = 0.08f + 0.05f * std::sin( 1.3f * _time - 0.9f ) + _walkBlend * 0.3f;
+    p.capeLift = 0.06f + 0.04f * std::sin( 0.0333f * frame + 0.5f ) + _walkBlend * 0.4f;
+    p.hairLag  = 0.08f + 0.05f * std::sin( 0.0217f * frame - 0.9f ) + _walkBlend * 0.3f;
 
-    constexpr GLfloat BLINK_PERIOD = 4.0f, BLINK_LENGTH = 0.15f;
-    const GLfloat blinkTime = std::fmod( _time, BLINK_PERIOD );
+    const GLuint blinkFrame = _frameCount % BLINK_PERIOD;
     GLfloat blink = 0.0f;
-    if( blinkTime < BLINK_LENGTH ) {
-        blink = std::sin( blinkTime / BLINK_LENGTH * glm::pi<GLfloat>() );
+    if( blinkFrame < BLINK_LENGTH ) {
+        blink = std::sin( static_cast<GLfloat>(blinkFrame) / static_cast<GLfloat>(BLINK_LENGTH) * glm::pi<GLfloat>() );
     }
     p.eyeOpen = 1.0f - 0.9f * blink;
 
