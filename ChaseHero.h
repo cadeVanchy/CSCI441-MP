@@ -3,24 +3,15 @@
 
 #include <glad/gl.h>
 #include <glm/glm.hpp>
+#include "LightingUniforms.h"
 
 /// \brief Our Hero's vehicle: a cube body with a teapot on top and two donut wheels that roll as it moves
 class ChaseHero {
 public:
-    /// \brief the lighting shader uniform locations Hero3D needs to draw itself
-    struct UniformLocations {
-        GLint mvpMtx;
-        GLint modelMtx;
-        GLint normalMtx;
-        GLint materialDiffuse;
-        GLint materialAmbient;
-        GLint materialSpecular;
-        GLint materialShininess;
-    };
 
     /// \param shaderProgramHandle lighting shader program to draw with
     /// \param uniformLocations where to send matrices and material values
-    ChaseHero(GLuint shaderProgramHandle, const UniformLocations& uniformLocations);
+    ChaseHero(const GLuint shaderProgramHandle, const LightingUniformLocations& uniformLocations);
 
     /// \brief draws the Hero at its current position and heading
     void draw(const glm::mat4& viewMtx, const glm::mat4& projMtx) const;
@@ -46,7 +37,7 @@ private:
     };
 
     GLuint _shaderProgramHandle;
-    UniformLocations _uniformLocations;
+    LightingUniformLocations _uniformLocations;
 
     /// \brief world position of the Hero (on the ground)
     glm::vec3 _position;

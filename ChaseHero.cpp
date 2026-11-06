@@ -9,7 +9,7 @@ void ChaseHero::moveBackward() { _move(-MOVE_SPEED); }
 void ChaseHero::turnLeft()     { _heading += TURN_SPEED; }
 void ChaseHero::turnRight()    { _heading -= TURN_SPEED; }
 
-ChaseHero::ChaseHero(const GLuint shaderProgramHandle, const UniformLocations& uniformLocations)
+ChaseHero::ChaseHero(const GLuint shaderProgramHandle, const LightingUniformLocations& uniformLocations)
     : _shaderProgramHandle(shaderProgramHandle),
       _uniformLocations(uniformLocations),
       _position(0.0f, 0.0f, 0.0f),
