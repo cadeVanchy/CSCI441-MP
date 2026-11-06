@@ -8,30 +8,23 @@
 #include <algorithm>
 #include <cmath>
 
-Hero::Hero(
-    const GLuint shaderProgramHandle,
-    const GLint mvpMtxUniformLocation,
-    const GLint modelMtxUniformLocation,
-    const GLint normalMtxUniformLocation,
-    const GLint materialColorUniformLocation,
-    const GLfloat worldHalfSize
-) : _position( 0.0f, 0.0f, 0.0f ),
+Hero::Hero( const GLuint shaderProgramHandle, const LightingUniformLocations& locs)
+: _position( 0.0f, 0.0f, 0.0f ),
     _heading( 0.0f ),
-    _worldHalfSize( worldHalfSize ),
+    _worldHalfSize( 50.0f ),
     _isMoving( false ),
     _stepDirection( 1.0f ),
     _walkPhase( 0.0f ),
     _walkBlend( 0.0f ),
     _frameCount( 0 ),
-    _shaderProgramHandle( 0 ),
-    _shaderProgramUniformLocations( {-1, -1, -1, -1} )
+    _shaderProgramHandle( 0 )
 {
-    setProgramUniformLocations( shaderProgramHandle, mvpMtxUniformLocation, modelMtxUniformLocation, normalMtxUniformLocation, materialColorUniformLocation );
+    setProgramUniformLocations( shaderProgramHandle, locs );
 }
 
-void Hero::setProgramUniformLocations( const GLuint shaderProgramHandle, const GLint mvpMtxUniformLocation, const GLint modelMtxUniformLocation, const GLint normalMtxUniformLocation, const GLint materialColorUniformLocation ) {
+void Hero::setProgramUniformLocations( const GLuint shaderProgramHandle, const LightingUniformLocations& locs ) {
     _shaderProgramHandle = shaderProgramHandle;
-    _shaderProgramUniformLocations = { mvpMtxUniformLocation, modelMtxUniformLocation, normalMtxUniformLocation, materialColorUniformLocation };
+    _uniformLocations = locs;
 }
 
 glm::vec3 Hero::getForward() const {
@@ -88,8 +81,8 @@ void Hero::update() {
 Hero::HeroPose Hero::_computePose() const {
     HeroPose p{};
     const GLfloat walkSin = std::sin( _walkPhase );
-    const GLfloat idle    = 1.0f - _walkBlend;
-    const GLfloat frame   = static_cast<GLfloat>( _frameCount );
+    const GLfloat idle = 1.0f - _walkBlend;
+    const GLfloat frame = static_cast<GLfloat>( _frameCount );
 
     p.bob = 0.015f * std::sin( 0.04f * frame );
     p.headTilt = 0.06f  * std::sin( 0.0217f * frame );
@@ -368,15 +361,20 @@ void Hero::_drawCone( const glm::mat4& modelMtx, const GLfloat baseRadius, const
 }
 
 void Hero::_sendColor( const glm::vec3& color ) const {
-    glProgramUniform3fv( _shaderProgramHandle, _shaderProgramUniformLocations.materialColor, 1, glm::value_ptr(color) );
+    const glm::vec3 ambient = color * 0.2f;
+    const glm::vec3 specular( 0.3f );
+    glProgramUniform3fv( _shaderProgramHandle, _uniformLocations.materialDiffuse,  1, glm::value_ptr(color) );
+    glProgramUniform3fv( _shaderProgramHandle, _uniformLocations.materialAmbient,  1, glm::value_ptr(ambient) );
+    glProgramUniform3fv( _shaderProgramHandle, _uniformLocations.materialSpecular, 1, glm::value_ptr(specular) );
+    glProgramUniform1f(  _shaderProgramHandle, _uniformLocations.materialShininess, 16.0f );
 }
 
 void Hero::_computeAndSendMatrixUniforms( const glm::mat4& modelMtx, const glm::mat4& viewMtx, const glm::mat4& projMtx ) const {
     const glm::mat4 mvpMtx = projMtx * viewMtx * modelMtx;
-    glProgramUniformMatrix4fv( _shaderProgramHandle, _shaderProgramUniformLocations.mvpMtx, 1, GL_FALSE, glm::value_ptr(mvpMtx) );
+    glProgramUniformMatrix4fv( _shaderProgramHandle, _uniformLocations.mvpMtx, 1, GL_FALSE, glm::value_ptr(mvpMtx) );
 
-    glProgramUniformMatrix4fv( _shaderProgramHandle, _shaderProgramUniformLocations.modelMtx, 1, GL_FALSE, glm::value_ptr(modelMtx) );
+    glProgramUniformMatrix4fv( _shaderProgramHandle, _uniformLocations.modelMtx, 1, GL_FALSE, glm::value_ptr(modelMtx) );
 
     const glm::mat3 normalMtx = glm::mat3( glm::transpose( glm::inverse( modelMtx ) ) );
-    glProgramUniformMatrix3fv( _shaderProgramHandle, _shaderProgramUniformLocations.normalMtx, 1, GL_FALSE, glm::value_ptr(normalMtx) );
+    glProgramUniformMatrix3fv( _shaderProgramHandle, _uniformLocations.normalMtx, 1, GL_FALSE, glm::value_ptr(normalMtx) );
 }

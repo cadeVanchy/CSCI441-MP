@@ -162,30 +162,18 @@ private:
 
     /// \brief shader program that performs lighting
     CSCI441::ShaderProgram* _lightingShaderProgram;   // the wrapper for our shader program
-    /// \brief stores the locations of all of our shader uniforms
-    struct LightingShaderUniformLocations {
-        /// \brief precomputed MVP matrix location
-        GLint mvpMatrix;
-        /// \brief material diffuse color location
-        GLint materialColor;
-        /// \brief light direction
+    /// \brief per-object uniform locations, shared with the hero (group lighting contract)
+    LightingUniformLocations _lightingLocs;
+    /// \brief light and camera uniform locations, owned by the engine
+    struct SceneUniformLocations {
         GLint lightDirection;
-        /// \brief light color
         GLint lightColor;
-        GLint normalMtx;
-        GLint modelMtx;
-        /// \brief cam position
-        GLint eyePosition;
+        GLint eyePos;
+    } _sceneUniformLocations;
 
-
-    } _lightingShaderUniformLocations;
-    /// \brief stores the locations of all of our shader attributes
-    struct LightingShaderAttributeLocations {
-        GLint vPos;
-        GLint vNormal;
-    } _lightingShaderAttributeLocations;
+    /// \brief sends diffuse/ambient/specular/shininess for one color
+    void _sendColor(const glm::vec3& color) const;
 };
-
 //*************************************************************************************
 // Callbacks
 static void a3_keyboard_callback(GLFWwindow *window, int key, int scancode, int action, int mods );

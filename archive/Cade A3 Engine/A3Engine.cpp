@@ -54,8 +54,7 @@ A3Engine::A3Engine()
     _pHero(nullptr),
     _gridVAO(0),
     _lightingShaderProgram(nullptr),
-    _lightingShaderUniformLocations( {-1, -1, -1, -1, -1, -1, -1} ),
-    _lightingShaderAttributeLocations( {-1, -1} )
+    _sceneUniformLocations( {-1, -1, -1} )
 {
     for(auto& _key : _keys) _key = GL_FALSE;
 }
@@ -84,13 +83,7 @@ void A3Engine::handleKeyEvent(const GLint KEY, const GLint ACTION) {
             case GLFW_KEY_R:
                 mReloadShaders();
                 _setLightingParameters();
-                _pHero->setProgramUniformLocations(
-                    _lightingShaderProgram->getShaderProgramHandle(),
-                    _lightingShaderUniformLocations.mvpMatrix,
-                    _lightingShaderUniformLocations.modelMtx,
-                    _lightingShaderUniformLocations.normalMtx,
-                    _lightingShaderUniformLocations.materialColor
-                );
+                _pHero->setProgramUniformLocations( _lightingShaderProgram->getShaderProgramHandle(), _lightingLocs );
                 break;
             // camera switch cases
             case GLFW_KEY_1:
@@ -174,16 +167,17 @@ void A3Engine::mSetupOpenGL() {
 
 void A3Engine::mSetupShaders() {
     _lightingShaderProgram = new CSCI441::ShaderProgram("shaders/a3.v.glsl", "shaders/a3.f.glsl" );
-    _lightingShaderUniformLocations.mvpMatrix      = _lightingShaderProgram->getUniformLocation("mvpMatrix");
-    _lightingShaderUniformLocations.materialColor  = _lightingShaderProgram->getUniformLocation("materialColor");
-    _lightingShaderUniformLocations.lightDirection = _lightingShaderProgram->getUniformLocation("lightDirection");
-    _lightingShaderUniformLocations.lightColor = _lightingShaderProgram->getUniformLocation("lightColor");
-    _lightingShaderUniformLocations.normalMtx = _lightingShaderProgram->getUniformLocation("normalMtx");
-    _lightingShaderUniformLocations.modelMtx = _lightingShaderProgram->getUniformLocation("modelMtx");
-    _lightingShaderUniformLocations.eyePosition = _lightingShaderProgram->getUniformLocation("eyePosition");
+    _lightingLocs.mvpMtx = _lightingShaderProgram->getUniformLocation("mvpMatrix");
+    _lightingLocs.modelMtx = _lightingShaderProgram->getUniformLocation("modelMatrix");
+    _lightingLocs.normalMtx = _lightingShaderProgram->getUniformLocation("normalMatrix");
+    _lightingLocs.materialDiffuse = _lightingShaderProgram->getUniformLocation("materialDiffuse");
+    _lightingLocs.materialAmbient = _lightingShaderProgram->getUniformLocation("materialAmbient");
+    _lightingLocs.materialSpecular= _lightingShaderProgram->getUniformLocation("materialSpecular");
+    _lightingLocs.materialShininess = _lightingShaderProgram->getUniformLocation("materialShininess");
 
-    _lightingShaderAttributeLocations.vPos         = _lightingShaderProgram->getAttributeLocation("vPos");
-    _lightingShaderAttributeLocations.vNormal = _lightingShaderProgram->getAttributeLocation("vNormal");
+    _sceneUniformLocations.lightDirection = _lightingShaderProgram->getUniformLocation("lightDirection");
+    _sceneUniformLocations.lightColor = _lightingShaderProgram->getUniformLocation("lightColor");
+    _sceneUniformLocations.eyePos = _lightingShaderProgram->getUniformLocation("eyePos");
 
 
     CSCI441::OpenGLUtils::checkOpenGLErrors("mSetupShaders() done");
@@ -191,15 +185,10 @@ void A3Engine::mSetupShaders() {
 
 void A3Engine::mSetupBuffers() {
     // needed to connect our 3D Object Library to our shader
-    CSCI441::setVertexAttributeLocations( _lightingShaderAttributeLocations.vPos, _lightingShaderAttributeLocations.vNormal );
+    CSCI441::setVertexAttributeLocations( LightingAttributes::POSITION, LightingAttributes::NORMAL );
 
-    _pHero = new Hero(_lightingShaderProgram->getShaderProgramHandle(),
-                      _lightingShaderUniformLocations.mvpMatrix,
-                      _lightingShaderUniformLocations.modelMtx,
-                      _lightingShaderUniformLocations.normalMtx,
-                      _lightingShaderUniformLocations.materialColor,
-                      WORLD_SIZE
-                      );
+    _pHero = new Hero( _lightingShaderProgram->getShaderProgramHandle(), _lightingLocs );
+    _pHero->setWorldHalfSize( WORLD_SIZE );
 
     _createGridBuffers();
     _generateEnvironment();
@@ -246,11 +235,11 @@ void A3Engine::_createGridBuffers() {
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(vertices.size() * sizeof(VertexNormal)), vertices.data(), GL_STATIC_DRAW);
 
-    glEnableVertexAttribArray(_lightingShaderAttributeLocations.vPos);
-    glVertexAttribPointer(_lightingShaderAttributeLocations.vPos, 3, GL_FLOAT, GL_FALSE, sizeof(VertexNormal), (void*)0);
+    glEnableVertexAttribArray(LightingAttributes::POSITION);
+    glVertexAttribPointer(LightingAttributes::POSITION, 3, GL_FLOAT, GL_FALSE, sizeof(VertexNormal), (void*)0);
 
-    glEnableVertexAttribArray(_lightingShaderAttributeLocations.vNormal);
-    glVertexAttribPointer(_lightingShaderAttributeLocations.vNormal, 3, GL_FLOAT, GL_FALSE, sizeof(VertexNormal), (void*)offsetof(VertexNormal, normal));
+    glEnableVertexAttribArray(LightingAttributes::NORMAL);
+    glVertexAttribPointer(LightingAttributes::NORMAL, 3, GL_FLOAT, GL_FALSE, sizeof(VertexNormal), (void*)offsetof(VertexNormal, normal));
 }
 
 void A3Engine::_generateEnvironment() {
@@ -371,13 +360,13 @@ void A3Engine::_renderScene(const glm::mat4& viewMtx, const glm::mat4& projMtx) 
     _lightingShaderProgram->useProgram();
 
     // specular depends on where the camera is, so send it every frame
-    _lightingShaderProgram->setProgramUniform(_lightingShaderUniformLocations.eyePosition, _getActiveCamera()->getPosition());
+    _lightingShaderProgram->setProgramUniform(_sceneUniformLocations.eyePos, _getActiveCamera()->getPosition());
 
     //// BEGIN DRAWING THE GRID ////
     _computeAndSendMatrixUniforms(glm::mat4(1.0f), viewMtx, projMtx);
 
     constexpr glm::vec3 gridColor(1.0f, 1.0f, 1.0f);
-    _lightingShaderProgram->setProgramUniform(_lightingShaderUniformLocations.materialColor, gridColor);
+    _sendColor(gridColor);
 
     glBindVertexArray(_gridVAO);
     glMultiDrawArrays(GL_LINE_STRIP, _gridStripFirsts.data(), _gridStripCounts.data(), static_cast<GLsizei>(_gridStripFirsts.size()));
@@ -386,7 +375,7 @@ void A3Engine::_renderScene(const glm::mat4& viewMtx, const glm::mat4& projMtx) 
     //// BEGIN DRAWING THE SCENE OBJECTS ////
     for( const auto& [modelMatrix, color] : _buildings ) {
         _computeAndSendMatrixUniforms(modelMatrix, viewMtx, projMtx);
-        _lightingShaderProgram->setProgramUniform(_lightingShaderUniformLocations.materialColor, color);
+        _sendColor(color);
         CSCI441::drawSolidCube(1.0);
     }
     //// END DRAWING THE SCENE OBJECTS ////
@@ -473,20 +462,26 @@ void A3Engine::_renderTextOverlay(const GLdouble fps, const GLdouble fpsAvg) con
 void A3Engine::_setLightingParameters() const {
     constexpr glm::vec3 lightDir = {-1.0f, -1.0f,  1.0f};
     constexpr glm::vec3 lightCol = { 1.0f,  1.0f,  1.0f};
-    _lightingShaderProgram->setProgramUniform(_lightingShaderUniformLocations.lightDirection, lightDir);
-    _lightingShaderProgram->setProgramUniform(_lightingShaderUniformLocations.lightColor, lightCol);
+    _lightingShaderProgram->setProgramUniform(_sceneUniformLocations.lightDirection, lightDir);
+    _lightingShaderProgram->setProgramUniform(_sceneUniformLocations.lightColor, lightCol);
 }
 
+void A3Engine::_sendColor(const glm::vec3& color) const {
+    _lightingShaderProgram->setProgramUniform(_lightingLocs.materialDiffuse, color);
+    _lightingShaderProgram->setProgramUniform(_lightingLocs.materialAmbient, color * 0.2f);
+    _lightingShaderProgram->setProgramUniform(_lightingLocs.materialSpecular, glm::vec3(0.3f));
+    _lightingShaderProgram->setProgramUniform(_lightingLocs.materialShininess, 16.0f);
+}
 
 void A3Engine::_computeAndSendMatrixUniforms(const glm::mat4& modelMtx, const glm::mat4& viewMtx, const glm::mat4& projMtx) const {
     // precompute the Model-View-Projection matrix on the CPU
     const glm::mat4 mvpMtx = projMtx * viewMtx * modelMtx;
     // then send it to the shader on the GPU to apply to every vertex
-    _lightingShaderProgram->setProgramUniform(_lightingShaderUniformLocations.mvpMatrix, mvpMtx);
+    _lightingShaderProgram->setProgramUniform(_lightingLocs.mvpMtx, mvpMtx);
 
-    _lightingShaderProgram->setProgramUniform(_lightingShaderUniformLocations.modelMtx, modelMtx);
+    _lightingShaderProgram->setProgramUniform(_lightingLocs.modelMtx, modelMtx);
     const glm::mat3 normalMtx = glm::mat3(glm::transpose(glm::inverse(modelMtx)));
-    _lightingShaderProgram->setProgramUniform(_lightingShaderUniformLocations.normalMtx, normalMtx);
+    _lightingShaderProgram->setProgramUniform(_lightingLocs.normalMtx, normalMtx);
 
 }
 

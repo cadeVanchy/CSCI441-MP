@@ -6,15 +6,19 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
 
+#include "LightingUniforms.h"
+
 // Hierarchical drow hero
 // Root pivot is the ground between the feet
 // faces +Z at heading 0
 
 class Hero {
 public:
-    Hero( GLuint shaderProgramHandle, GLint mvpMtxUniformLocation, GLint modelMtxUniformLocation, GLint normalMtxUniformLocation, GLint materialColorUniformLocation, GLfloat worldHalfSize );
+    Hero( GLuint shaderProgramHandle, const LightingUniformLocations& locs );
 
-    void setProgramUniformLocations( GLuint shaderProgramHandle, GLint mvpMtxUniformLocation, GLint modelMtxUniformLocation, GLint normalMtxUniformLocation, GLint materialColorUniformLocation );
+    void setProgramUniformLocations( GLuint shaderProgramHandle, const LightingUniformLocations& locs );
+
+    void setWorldHalfSize( GLfloat worldHalfSize ) { _worldHalfSize = worldHalfSize; }
 
     void draw( const glm::mat4& viewMtx, const glm::mat4& projMtx ) const;
 
@@ -81,12 +85,8 @@ private:
     void _computeAndSendMatrixUniforms( const glm::mat4& modelMtx, const glm::mat4& viewMtx, const glm::mat4& projMtx ) const;
 
     GLuint _shaderProgramHandle;
-    struct ShaderProgramUniformLocations {
-        GLint mvpMtx;
-        GLint modelMtx;
-        GLint normalMtx;
-        GLint materialColor;
-    } _shaderProgramUniformLocations;
+
+    LightingUniformLocations _uniformLocations;
 
     // per-frame animation rates (tuned for 60 FPS)
     static constexpr GLfloat WALK_PHASE_STEP = 0.133f;
